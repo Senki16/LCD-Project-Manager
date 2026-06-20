@@ -1,0 +1,9 @@
+# Configuración de build para Railway (Nixpacks).
+# Root Directory del servicio en Railway debe ser: apps/backend
+# --workspaces=false evita que npm instale el resto del monorepo (Electron, etc.)
+
+[phases.install]
+cmds = ["npm install --include-workspace-root=false --workspaces=false"]
+
+[phases.build]
+cmds = ["npm run build"]
