@@ -3,17 +3,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { uploadsRoot } from './uploads';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const BUCKET = process.env.SUPABASE_BUCKET || 'project-files';
+const BUCKET = () => process.env.SUPABASE_BUCKET || 'project-files';
 
 let _client: SupabaseClient | null = null;
 let _bucketReady = false;
 
+// Lee las variables de entorno de forma diferida (funciona aunque .env se cargue tarde)
 function client(): SupabaseClient | null {
   if (_client) return _client;
-  if (SUPABASE_URL && SUPABASE_KEY) {
-    _client = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (url && key) {
+    _client = createClient(url, key, { auth: { persistSession: false } });
   }
   return _client;
 }
@@ -27,9 +28,9 @@ export function isCloudStorage(): boolean {
 export async function ensureBucket(): Promise<void> {
   const c = client();
   if (!c || _bucketReady) return;
-  const { data } = await c.storage.getBucket(BUCKET);
+  const { data } = await c.storage.getBucket(BUCKET());
   if (!data) {
-    await c.storage.createBucket(BUCKET, { public: true });
+    await c.storage.createBucket(BUCKET(), { public: true });
   }
   _bucketReady = true;
 }
@@ -42,7 +43,7 @@ export async function putObject(key: string, body: Buffer, contentType: string):
   const c = client();
   if (c) {
     await ensureBucket();
-    const { error } = await c.storage.from(BUCKET).upload(key, body, { contentType, upsert: true });
+    const { error } = await c.storage.from(BUCKET()).upload(key, body, { contentType, upsert: true });
     if (error) throw error;
     return key;
   }
@@ -56,7 +57,7 @@ export async function putObject(key: string, body: Buffer, contentType: string):
 export function publicUrl(key: string): string | null {
   const c = client();
   if (!c) return null;
-  const { data } = c.storage.from(BUCKET).getPublicUrl(key);
+  const { data } = c.storage.from(BUCKET()).getPublicUrl(key);
   return data.publicUrl;
 }
 
@@ -69,7 +70,7 @@ export function localPath(key: string): string {
 export async function deleteObject(key: string): Promise<void> {
   const c = client();
   if (c) {
-    await c.storage.from(BUCKET).remove([key]);
+    await c.storage.from(BUCKET()).remove([key]);
     return;
   }
   const p = localPath(key);
