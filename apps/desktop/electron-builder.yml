@@ -1,0 +1,60 @@
+appId: com.lcdprojects.hub
+productName: LCD Projects Hub
+copyright: "© 2024 LCD Projects"
+# Fijado explícitamente porque npm workspaces hoistea electron al node_modules raíz
+electronVersion: 29.1.0
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+
+directories:
+  output: ../../dist-electron
+  buildResources: build
+
+# Archivos a empaquetar (rutas relativas a apps/desktop)
+files:
+  - dist/**/*
+  - electron/**/*.cjs
+  - "!node_modules/**"
+
+extraResources:
+  # Backend compilado empaquetado como recurso externo
+  - from: ../backend/dist
+    to: backend/dist
+    filter: ["**/*"]
+  # node_modules autocontenido de producción (generado por COMPILAR EXE.bat en Temp,
+  # porque el monorepo hoistea las deps al node_modules raíz y dejaría el backend incompleto)
+  - from: C:/Users/david/AppData/Local/Temp/lcd-backend-pkg/node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+      - "!**/*.map"
+      - "!**/test/**"
+      - "!**/__tests__/**"
+  # Esquema + BD semilla (se copia a userData en el primer arranque)
+  - from: ../backend/prisma
+    to: backend/prisma
+    filter:
+      - "schema.prisma"
+      - "lcd_projects.db"
+  # Archivos reales de los proyectos (se copian a userData en el primer arranque)
+  - from: ../backend/uploads
+    to: backend/uploads
+    filter: ["**/*"]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: LCD Projects Hub
+  differentialPackage: false
+
+portable:
+  artifactName: "LCD-Projects-Hub-portable.exe"

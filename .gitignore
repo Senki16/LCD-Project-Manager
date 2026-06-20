@@ -1,0 +1,44 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Builds / artefactos
+dist/
+**/dist/
+dist-electron/
+*.tsbuildinfo
+.vite/
+
+# Tauri / Rust (no usado, pero por si acaso)
+**/src-tauri/target/
+
+# Base de datos SQLite (se regenera con los seeds)
+*.db
+*.db-journal
+*.sqlite
+
+# Archivos subidos / datos reales (pesados, no van al repo)
+apps/backend/uploads/
+
+# Variables de entorno
+.env
+.env.local
+*.env
+!*.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Caché
+.cache/

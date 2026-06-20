@@ -1,0 +1,52 @@
+{
+  "name": "@lcd/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LCD Projects Hub - Gestión de proyectos familiares y empresariales",
+  "author": "LCD Projects <davboros111@gmail.com>",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "electron:dev": "cross-env NODE_ENV=development electron electron/main.cjs",
+    "electron:build": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --win --x64",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@react-three/drei": "^9.99.0",
+    "@react-three/fiber": "^8.16.0",
+    "@tanstack/react-query": "^5.18.0",
+    "@tauri-apps/api": "^1.6.0",
+    "axios": "^1.6.5",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.3.0",
+    "framer-motion": "^11.0.3",
+    "lucide-react": "^0.323.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "tailwind-merge": "^2.2.0",
+    "three": "^0.162.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.6.0",
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@types/three": "^0.162.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "cross-env": "^7.0.3",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "lcd-projects-hub",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "backend": "npm run dev --workspace=apps/backend",
+    "desktop": "npm run dev --workspace=apps/desktop",
+    "dev": "concurrently \"npm run backend\" \"npm run desktop\"",
+    "electron:dev": "concurrently \"npm run backend\" \"npm run electron:dev --workspace=apps/desktop\"",
+    "electron:build": "npm run build --workspace=apps/backend && npm run electron:build --workspace=apps/desktop",
+    "build": "npm run build --workspace=apps/backend && npm run build --workspace=apps/desktop",
+    "db:push": "npm run db:push --workspace=apps/backend",
+    "db:seed": "npm run db:seed --workspace=apps/backend",
+    "db:seed:real": "npx ts-node --project apps/backend/tsconfig.json apps/backend/prisma/seed-real.ts",
+    "install:all": "npm install && npm install --workspace=apps/backend && npm install --workspace=apps/desktop"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

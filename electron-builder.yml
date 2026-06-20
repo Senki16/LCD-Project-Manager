@@ -1,0 +1,57 @@
+appId: com.lcdprojects.hub
+productName: LCD Projects Hub
+copyright: "© 2024 LCD Projects"
+
+directories:
+  output: dist-electron
+  buildResources: build
+
+files:
+  # Frontend compilado
+  - from: apps/desktop/dist
+    to: .
+    filter:
+      - "**/*"
+  # Código Electron
+  - from: apps/desktop/electron
+    to: electron
+    filter:
+      - "*.js"
+
+extraResources:
+  # Backend NestJS compilado
+  - from: apps/backend/dist
+    to: backend/dist
+    filter:
+      - "**/*"
+  - from: apps/backend/node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+      - "!**/*.map"
+  - from: apps/backend/prisma
+    to: backend/prisma
+    filter:
+      - "schema.prisma"
+      - "*.db"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: LCD Projects Hub
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  differentialPackage: false
+
+# Para portátil (sin instalador)
+portable:
+  artifactName: "LCD-Projects-Hub-portable.exe"
