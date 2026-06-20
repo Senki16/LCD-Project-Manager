@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:web": "vite build",
     "electron:dev": "cross-env NODE_ENV=development electron electron/main.cjs",
     "electron:build": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --win --x64",
     "tauri:dev": "tauri dev",

@@ -1,0 +1,2 @@
+# El frontend compilado se copia aquí durante el build de la nube (Render).
+# En desarrollo esta carpeta está vacía (el frontend corre por Vite).

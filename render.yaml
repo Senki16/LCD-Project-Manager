@@ -1,0 +1,30 @@
+# Render Blueprint — despliega backend (NestJS) + frontend (servido por el backend)
+# Crea el servicio en https://render.com → New → Blueprint → conecta este repo.
+# Luego define las variables marcadas como "sync: false" en el dashboard.
+services:
+  - type: web
+    name: lcd-projects-hub
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: |
+      VITE_API_URL=/api npm run build:web --workspace=apps/desktop
+      rm -rf apps/backend/public && mkdir -p apps/backend/public
+      cp -r apps/desktop/dist/. apps/backend/public/
+      npm run build --workspace=apps/backend
+    startCommand: npm run start:prod --workspace=apps/backend
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Evita descargar el binario de Electron (no se usa en la nube)
+      - key: ELECTRON_SKIP_BINARY_DOWNLOAD
+        value: "1"
+      - key: SUPABASE_BUCKET
+        value: project-files
+      # Secretos: se definen en el dashboard de Render (no en el repo)
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

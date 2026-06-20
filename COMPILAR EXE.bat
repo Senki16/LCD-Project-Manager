@@ -10,7 +10,8 @@ echo.
 echo  Este proceso puede tardar 5-10 minutos.
 echo.
 
-set "STAGING=%TEMP%\lcd-backend-pkg"
+:: Staging sin espacios para evitar problemas con cmd
+set "STAGING=%USERPROFILE%\lcd-pkg"
 
 :: 1. Compilar backend NestJS
 echo [1/4] Compilando backend NestJS...
@@ -21,22 +22,28 @@ if errorlevel 1 (
     pause & exit /b 1
 )
 
-:: 2. Backend autocontenido (el monorepo hoistea deps al root; el .exe necesita
-::    un node_modules completo con @prisma/client y su engine)
+:: 2. Backend autocontenido
 echo.
 echo [2/4] Preparando backend autocontenido (Prisma + NestJS)...
-if exist "%STAGING%" rmdir /s /q "%STAGING%"
-mkdir "%STAGING%\prisma"
-copy /Y "%~dp0apps\backend\package.json" "%STAGING%\" >nul
-copy /Y "%~dp0apps\backend\prisma\schema.prisma" "%STAGING%\prisma\" >nul
-cd /d "%STAGING%"
+if exist %STAGING% rd /s /q %STAGING%
+md %STAGING%
+md %STAGING%\prisma
+if not exist %STAGING%\prisma (
+    echo [ERROR] No se pudo crear el directorio %STAGING%\prisma
+    pause & exit /b 1
+)
+copy /Y "%~dp0apps\backend\package.json" %STAGING%\
+if errorlevel 1 ( echo [ERROR] No se pudo copiar package.json & pause & exit /b 1 )
+copy /Y "%~dp0apps\backend\prisma\schema.prisma" %STAGING%\prisma\
+if errorlevel 1 ( echo [ERROR] No se pudo copiar schema.prisma & pause & exit /b 1 )
+cd /d %STAGING%
 call npm install --no-audit --no-fund
 if errorlevel 1 ( echo [ERROR] Fallo npm install del backend. & pause & exit /b 1 )
-call npx prisma generate
+call "%~dp0node_modules\.bin\prisma" generate --schema %STAGING%\prisma\schema.prisma
 if errorlevel 1 ( echo [ERROR] Fallo prisma generate. & pause & exit /b 1 )
 call npm prune --omit=dev --no-audit --no-fund
 
-:: 3. Compilar frontend React+Vite (base relativa para file://)
+:: 3. Compilar frontend React+Vite
 echo.
 echo [3/4] Compilando frontend React...
 cd /d "%~dp0apps\desktop"

@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import * as fs from 'fs';
 import { uploadsRoot } from './common/uploads';
+import { ensureBucket, isCloudStorage } from './common/storage';
 
 // Crea los 3 usuarios del equipo si la BD está vacía (necesario en la nube,
 // donde el volumen arranca sin datos). Idempotente.
@@ -46,6 +47,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
+
+  // Crear el bucket de almacenamiento en la nube si hace falta
+  if (isCloudStorage()) await ensureBucket();
 
   // Sembrar usuarios si hace falta
   await ensureSeedUsers(app.get(PrismaService));

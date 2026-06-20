@@ -1,28 +1,16 @@
 import {
   Controller, Get, Post, Delete, Patch, Body, Param,
-  Query, UseInterceptors, UploadedFile, Res, StreamableFile,
+  Query, UseInterceptors, UploadedFile, Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { Response } from 'express';
-import * as path from 'path';
 import * as fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { FilesService } from './files.service';
-import { uploadsRoot, resolveUploadPath } from '../common/uploads';
+import { isCloudStorage, publicUrl, localPath } from '../common/storage';
 
-const storage = diskStorage({
-  destination: (req, file, cb) => {
-    const projectId = (req.params as any).projectId || 'misc';
-    const dir = path.join(uploadsRoot(), 'projects', projectId);
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
-});
+// Subida a memoria: el buffer se reenvía a Supabase Storage (o a disco en local).
+const UPLOAD_LIMIT = 50 * 1024 * 1024; // 50 MB (límite del plan gratis de Supabase)
 
 @Controller()
 export class FilesController {
@@ -50,7 +38,7 @@ export class FilesController {
   }
 
   @Post('projects/:projectId/files')
-  @UseInterceptors(FileInterceptor('file', { storage }))
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: UPLOAD_LIMIT } }))
   upload(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -60,14 +48,21 @@ export class FilesController {
   }
 
   @Get('files/:id/download')
-  async download(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+  async download(@Param('id') id: string, @Res() res: Response) {
     const file = await this.filesService.findOne(id);
     if (!file) return res.status(404).json({ message: 'Not found' });
-    const abs = resolveUploadPath(file.path);
-    if (!fs.existsSync(abs)) return res.status(404).json({ message: 'File missing on disk' });
-    const stream = fs.createReadStream(abs);
-    res.set({ 'Content-Disposition': `attachment; filename="${file.originalName}"` });
-    return new StreamableFile(stream);
+
+    // Nube: redirige a la URL pública de Supabase (descarga directa, sin pasar por el server)
+    if (isCloudStorage()) {
+      const url = publicUrl(file.path);
+      if (!url) return res.status(404).json({ message: 'No URL' });
+      return res.redirect(url);
+    }
+
+    // Local: sirve desde disco
+    const abs = localPath(file.path);
+    if (!fs.existsSync(abs)) return res.status(404).json({ message: 'File missing' });
+    return res.download(abs, file.originalName);
   }
 
   @Patch('files/:id/rename')

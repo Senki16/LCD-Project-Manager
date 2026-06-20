@@ -1,16 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as path from 'path';
-import * as fs from 'fs';
-import { uploadsRoot, resolveUploadPath, toRelativeUpload } from '../common/uploads';
+import { v4 as uuidv4 } from 'uuid';
+import { putObject, deleteObject } from '../common/storage';
 
 @Injectable()
 export class FilesService {
   constructor(private prisma: PrismaService) {}
-
-  private get uploadsDir() {
-    return uploadsRoot();
-  }
 
   findByProject(projectId: string, folderId?: string) {
     return this.prisma.file.findMany({
@@ -33,6 +29,10 @@ export class FilesService {
     folderId?: string,
   ) {
     const ext = path.extname(file.originalname).toLowerCase().slice(1);
+    // Sube el buffer a la nube (o disco) y guarda la key relativa
+    const key = `projects/${projectId}/${uuidv4()}${ext ? '.' + ext : ''}`;
+    await putObject(key, file.buffer, file.mimetype || 'application/octet-stream');
+
     const record = await this.prisma.file.create({
       data: {
         projectId,
@@ -42,7 +42,7 @@ export class FilesService {
         size: file.size,
         mimeType: file.mimetype,
         extension: ext,
-        path: toRelativeUpload(file.path),
+        path: key,
       },
     });
     return record;
@@ -51,15 +51,8 @@ export class FilesService {
   async delete(id: string) {
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException('Archivo no encontrado');
-    const abs = resolveUploadPath(file.path);
-    if (fs.existsSync(abs)) fs.unlinkSync(abs);
+    await deleteObject(file.path);
     return this.prisma.file.delete({ where: { id } });
-  }
-
-  async getFilePath(id: string): Promise<string> {
-    const file = await this.prisma.file.findUnique({ where: { id } });
-    if (!file) throw new NotFoundException('Archivo no encontrado');
-    return resolveUploadPath(file.path);
   }
 
   async findOne(id: string) {

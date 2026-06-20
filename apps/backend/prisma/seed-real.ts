@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { putObject, isCloudStorage } from '../src/common/storage';
 
 const prisma = new PrismaClient();
+const MAX_SIZE = 50 * 1024 * 1024; // 50 MB (límite del plan gratis de Supabase)
 
 const SOURCE_BASE = 'C:\\Users\\david\\OneDrive\\Escritorio\\Proyectos\\Proyectos mama\\Proyectos\\ARCHIVOS TRABAJOS DE MAMA';
 // Respeta UPLOADS_ROOT (igual que el backend) para poder sincronizar contra dev o userData
@@ -47,20 +49,24 @@ function getMime(ext: string): string {
   return map[ext.toLowerCase()] || 'application/octet-stream';
 }
 
-// Copia un archivo a uploads/projects/<id>/<rel> y crea el registro en la BD
+// Sube un archivo a la nube (o disco) y crea el registro en la BD
 async function addFile(projectId: string, absSrc: string, rel: string) {
   if (!fs.existsSync(absSrc)) { console.warn(`  ⚠️  No encontrado: ${absSrc}`); return false; }
-  const destFull = path.join(UPLOADS_DIR, 'projects', projectId, ...rel.split('/'));
-  ensureDir(path.dirname(destFull));
-  try {
-    fs.copyFileSync(absSrc, destFull);
-  } catch (e: any) {
-    console.warn(`  ⚠️  Error copiando ${rel}: ${e.message}`);
+  const size = fs.statSync(absSrc).size;
+  if (size > MAX_SIZE) {
+    console.warn(`  ⏭️  Omitido (>50MB, límite Supabase): ${rel} (${(size / 1048576).toFixed(0)} MB)`);
     return false;
   }
-  const size = fs.statSync(destFull).size;
   const name = path.basename(rel);
   const ext = path.extname(name).slice(1).toLowerCase();
+  const key = `projects/${projectId}/${rel}`;
+
+  try {
+    await putObject(key, fs.readFileSync(absSrc), getMime(ext));
+  } catch (e: any) {
+    console.warn(`  ⚠️  Error subiendo ${rel}: ${e.message}`);
+    return false;
+  }
   console.log(`  📎 ${rel} (${(size / 1024).toFixed(0)} KB)`);
 
   await prisma.file.create({
@@ -71,7 +77,7 @@ async function addFile(projectId: string, absSrc: string, rel: string) {
       size,
       mimeType: getMime(ext),
       extension: ext,
-      path: `projects/${projectId}/${rel}`, // ruta relativa portable
+      path: key,
     },
   });
   return true;
@@ -101,23 +107,57 @@ async function main() {
     process.exit(1);
   }
 
-  // ── Definición de los 3 proyectos reales ──────────────────────────────────
+  // ── Proyectos retirados (divididos/renombrados): eliminarlos por completo ──
+  // 'real-project-arte-conceptual' se dividió en Masajeador + Monsteras.
+  const RETIRED = ['real-project-arte-conceptual'];
+  for (const id of RETIRED) {
+    if (!(await prisma.project.findUnique({ where: { id } }))) continue;
+    await prisma.file.deleteMany({ where: { projectId: id } });
+    await prisma.folder.deleteMany({ where: { projectId: id } });
+    await prisma.doc.deleteMany({ where: { projectId: id } });
+    await prisma.activity.deleteMany({ where: { projectId: id } });
+    await prisma.comment.deleteMany({ where: { projectId: id } });
+    await prisma.task.deleteMany({ where: { projectId: id } });
+    await prisma.projectCollaborator.deleteMany({ where: { projectId: id } });
+    await prisma.project.delete({ where: { id } });
+    const dir = path.join(UPLOADS_DIR, 'projects', id);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+    console.log(`🗑️  Eliminado proyecto retirado: ${id}`);
+  }
+
+  // ── Definición de los proyectos reales ────────────────────────────────────
   const projects = [
     {
-      id: 'real-project-arte-conceptual',
-      name: 'Arte Conceptual — Bolsero y Monsteras',
-      description: 'Diseño del bolsero/masajeador profesional para masajes y la colección Monsteras: arte conceptual, identidad de marca (logo), renders y modelos 3D (STL) del masajeador para impresión.',
-      status: 'IN_DEVELOPMENT', priority: 'MEDIUM', ownerId: claudia.id,
-      color: '#FF2D55', emoji: '🎨',
-      tags: ['arte', 'conceptual', 'diseño', 'producto', 'bolsero', 'masajeador', 'monsteras', '3D', 'STL'],
+      id: 'real-project-masajeador',
+      name: 'Proyecto Masajeador',
+      description: 'Diseño del bolsero/masajeador profesional para masajes: arte conceptual, renders, identidad visual y modelos 3D (STL) del masajeador para impresión.',
+      status: 'IN_DEVELOPMENT', priority: 'HIGH', ownerId: claudia.id,
+      color: '#FF2D55', emoji: '💆',
+      tags: ['masajeador', 'bolsero', 'diseño', 'producto', '3D', 'STL', 'arte conceptual'],
       collaborators: [david.id],
       activityUser: claudia.id,
-      // El origen se reorganizó en dos carpetas (MASAJEADOR y MONSTERAS)
-      folders: ['MASAJEADOR', 'MONSTERAS'],
+      folder: 'MASAJEADOR',
       tasks: [
         { title: 'Revisión de arte conceptual bolsero', column: 'IN_REVIEW', status: 'IN_REVIEW', priority: 'HIGH', position: 0 },
+        { title: 'Ajustes de diseño y ergonomía', column: 'PENDING', status: 'PENDING', priority: 'MEDIUM', position: 0 },
+        { title: 'Exportación de STL para impresión 3D', column: 'PENDING', status: 'PENDING', priority: 'HIGH', position: 1 },
+        { title: 'Presentación final al cliente', column: 'PENDING', status: 'PENDING', priority: 'HIGH', position: 2 },
+      ],
+    },
+    {
+      id: 'real-project-monsteras',
+      name: 'Proyecto Monsteras',
+      description: 'Colección Monsteras: arte conceptual, identidad de marca (logo), renders y material gráfico de la línea de productos inspirada en plantas monsteras.',
+      status: 'IN_DEVELOPMENT', priority: 'MEDIUM', ownerId: claudia.id,
+      color: '#30D158', emoji: '🌿',
+      tags: ['monsteras', 'arte conceptual', 'identidad de marca', 'logo', 'diseño gráfico', 'renders'],
+      collaborators: [david.id],
+      activityUser: claudia.id,
+      folder: 'MONSTERAS',
+      tasks: [
         { title: 'Ajustes de paleta de colores Monsteras', column: 'PENDING', status: 'PENDING', priority: 'MEDIUM', position: 0 },
-        { title: 'Presentación final al cliente', column: 'PENDING', status: 'PENDING', priority: 'HIGH', position: 1 },
+        { title: 'Diseño de logotipo — revisión final', column: 'IN_REVIEW', status: 'IN_REVIEW', priority: 'HIGH', position: 0 },
+        { title: 'Presentación de identidad de marca al cliente', column: 'PENDING', status: 'PENDING', priority: 'HIGH', position: 1 },
       ],
     },
     {
@@ -163,6 +203,13 @@ async function main() {
       ],
     },
   ];
+
+  // Eliminar el proyecto combinado antiguo si aún existe
+  const oldProject = await prisma.project.findUnique({ where: { id: 'real-project-arte-conceptual' } });
+  if (oldProject) {
+    console.log('\n🗑️  Eliminando proyecto antiguo "Arte Conceptual — Bolsero y Monsteras" (ahora son proyectos separados)...');
+    await prisma.project.delete({ where: { id: 'real-project-arte-conceptual' } });
+  }
 
   let totalFiles = 0;
   for (const p of projects) {
@@ -220,6 +267,53 @@ async function main() {
 
   // ── Documentación de proyectos (idempotente por id) ───────────────────────
   await prisma.doc.upsert({
+    where: { id: 'doc-masajeador-001' },
+    update: {},
+    create: {
+      id: 'doc-masajeador-001', projectId: 'real-project-masajeador',
+      title: 'Especificaciones del masajeador',
+      content: `# Proyecto Masajeador — Especificaciones
+
+## Descripción
+Diseño de un bolsero/masajeador profesional para uso en masajes terapéuticos y relajantes.
+
+## Archivos del proyecto
+- Renders y arte conceptual del producto
+- Modelos 3D (STL) listos para impresión
+- Identidad visual del masajeador
+
+## Material sugerido
+- PLA/ABS para prototipado rápido
+- TPU para piezas con flexibilidad táctil
+
+## Estado
+En desarrollo. Arte conceptual en revisión.`,
+    },
+  });
+
+  await prisma.doc.upsert({
+    where: { id: 'doc-monsteras-001' },
+    update: {},
+    create: {
+      id: 'doc-monsteras-001', projectId: 'real-project-monsteras',
+      title: 'Identidad de marca Monsteras',
+      content: `# Proyecto Monsteras — Identidad de Marca
+
+## Descripción
+Colección Monsteras inspirada en plantas tropicales. Incluye arte conceptual, logotipo y renders de la línea de productos.
+
+## Archivos del proyecto
+- Arte conceptual e ilustraciones de la colección
+- Logotipo y variantes de marca
+- Renders de producto con identidad visual
+- Paleta de colores y tipografía
+
+## Estado
+En desarrollo. Logotipo en revisión final.`,
+    },
+  });
+
+  await prisma.doc.upsert({
     where: { id: 'doc-embudo-001' },
     update: {},
     create: {
@@ -275,7 +369,7 @@ En revisión por pares. Pendiente correcciones y envío a revista.`,
     },
   });
 
-  console.log(`\n✅ Sincronización completa: ${totalFiles} archivos en 3 proyectos`);
+  console.log(`\n✅ Sincronización completa: ${totalFiles} archivos en 4 proyectos`);
 }
 
 main()
