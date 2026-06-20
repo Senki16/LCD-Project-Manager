@@ -102,8 +102,10 @@ export class ProjectsService {
       }),
     ]);
 
-    const statusMap = byStatus.reduce((acc, s) => ({ ...acc, [s.status]: s._count }), {} as Record<string, number>);
-    const taskMap = taskStats.reduce((acc, s) => ({ ...acc, [s.status]: s._count }), {} as Record<string, number>);
+    const statusMap: Record<string, number> = {};
+    for (const s of byStatus) statusMap[String(s.status)] = Number(s._count);
+    const taskMap: Record<string, number> = {};
+    for (const s of taskStats) taskMap[String(s.status)] = Number(s._count);
 
     return {
       totalProjects: total,
