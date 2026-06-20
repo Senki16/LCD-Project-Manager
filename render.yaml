@@ -8,6 +8,8 @@ services:
     plan: free
     region: oregon
     buildCommand: |
+      set -e
+      npm install --include=dev
       VITE_API_URL=/api npm run build:web --workspace=apps/desktop
       rm -rf apps/backend/public && mkdir -p apps/backend/public
       cp -r apps/desktop/dist/. apps/backend/public/
