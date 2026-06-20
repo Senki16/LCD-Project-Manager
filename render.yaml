@@ -17,7 +17,7 @@ services:
     startCommand: npm run start:prod --workspace=apps/backend
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       # Evita descargar el binario de Electron (no se usa en la nube)
       - key: ELECTRON_SKIP_BINARY_DOWNLOAD
         value: "1"

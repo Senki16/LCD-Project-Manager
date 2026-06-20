@@ -3,6 +3,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { uploadsRoot } from './uploads';
 
+// El cliente realtime de Supabase necesita WebSocket; Node < 22 no lo expone global.
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  try {
+    (globalThis as any).WebSocket = require('ws');
+  } catch {
+    /* en Node >= 22 hay WebSocket nativo, no hace falta */
+  }
+}
+
 const BUCKET = () => process.env.SUPABASE_BUCKET || 'project-files';
 
 let _client: SupabaseClient | null = null;
