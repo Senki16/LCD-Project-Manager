@@ -65,6 +65,16 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 LCD Projects Hub Backend corriendo en el puerto ${port} (/api)`);
+
+  // Keep-alive: evita que Render (plan gratis) duerma tras 15 min sin tráfico.
+  // El servicio se hace una petición a sí mismo cada 10 min.
+  const selfUrl = process.env.RENDER_EXTERNAL_URL;
+  if (selfUrl) {
+    setInterval(() => {
+      fetch(selfUrl).catch(() => {});
+    }, 10 * 60 * 1000);
+    console.log(`⏰ Keep-alive activo (${selfUrl})`);
+  }
 }
 
 bootstrap();
