@@ -6,7 +6,14 @@ import './styles/globals.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
+    queries: {
+      // Workspace compartido: refresca solo para ver cambios de otros
+      staleTime: 5_000,
+      refetchInterval: 8_000, // consulta cambios cada 8s (solo con la ventana en foco)
+      refetchIntervalInBackground: false, // no consulta si la app está en 2º plano (deja dormir el server)
+      refetchOnWindowFocus: true, // al volver a la app, actualiza de inmediato
+      retry: 1,
+    },
     mutations: { retry: 0 },
   },
 });
